@@ -1,80 +1,37 @@
-require_relative 'input.rb'
-require_relative 'display.rb'
+# frozen_string_literal: true
 
-# Game instances will display instructions and control the flow of the game.
+require './text_instructions'
+require './text_content'
+require './display'
+
+# main class that starts the game
 class Game
-  attr_reader :rows, :code, :game_board, :game_mode, :breaker, :maker
-  attr_accessor :turn
-
-  include Input
+  include TextInstructions
+  include TextContent
   include Display
 
-  def initialize
-    clear_screen
-    puts instructions
-  end
-
   def play
-    playing = true
-    while playing
-      new_game
-      playing = play_again?
-    end
-    puts messages('bye')
+    puts instructions
+    game_mode = mode_selection
+    code_maker if game_mode == '1'
+    code_breaker if game_mode == '2'
   end
 
-  private
+  def mode_selection
+    input = gets.chomp
+    return input if input.match(/^[1-2]$/)
 
-  def new_game
-    game_setup
-    @game_board = GameBoard.new(code: code, rows: rows)
-    self.turn = -1
-    next_turn until game_over
-    clear_stdin
-    breaker.breaker_end_game(game_over)
-    puts 'Code:'
-    code_board = GameBoard.new(rows: 1, board: GameBoard.create_row(guess: code))
-    puts code_board
+    puts warning_message('answer_error')
+    mode_selection
   end
 
-  def game_setup
-    @game_mode = get_int_between(messages('mode'), 1, 2) # 1 = human breaker, 2 = human maker
-    @rows = get_int_between(messages('rows'), 1, 15)
-    @breaker = game_mode == 1 ? Human.new : Computer.new
-    @maker = game_mode == 1 ? Computer.new : Human.new
-    @code = maker.set_code
-    clear_screen
+  def code_maker
+    maker = ComputerSolver.new
+    maker.computer_start
   end
 
-  def next_turn
-    self.turn += 1
-    clear_screen
-    four_guesses
-    game_board.update_keys(row: turn)
-    puts game_board
-  end
-
-  def four_guesses
-    4.times do |i|
-      puts game_board
-      puts "Thinking... this may take awhile" if breaker.name == 'Computer'
-      game_board.add_guess(row: turn, col: i, guess: breaker.new_guess(game_board))
-      clear_screen
-    end
-  end
-
-  def game_over
-    return 'loser' if rows == turn + 1 && game_board.keys_at(turn).uniq != ['red']
-    return 'winner' if game_board.keys_at(turn).uniq == ['red']
-
-    false
-  end
-
-  def play_again?
-    yes_no(messages('again')) == 'y'
-  end
-
-  def clear_stdin
-    $stdin.getc while $stdin.ready?
+  def code_breaker
+    breaker = HumanSolver.new
+    breaker.player_turns
   end
 end
